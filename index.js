@@ -5,10 +5,9 @@ const cors = require('cors');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: true }));
 app.use(express.json({ limit: '10mb' }));
 
 // Routes
@@ -32,10 +31,25 @@ app.get('/', (req, res) => {
 // Global error handler (must be last)
 app.use(errorHandler);
 
-// Connect to MongoDB and start server
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => {
-        console.log('✅ MongoDB connected — edutrack database');
-        app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
-    })
-    .catch(err => console.error('❌ MongoDB connection error:', err.message));
+// MongoDB connection cache for serverless
+let cachedDb = null;
+async function connectToDatabase() {
+    if (cachedDb) return cachedDb;
+    const db = await mongoose.connect(process.env.MONGODB_URI);
+    cachedDb = db;
+    return db;
+}
+
+// Connect before each request in serverless
+app.use(async (req, res, next) => {
+    try {
+        await connectToDatabase();
+        next();
+    } catch (err) {
+        console.error('❌ MongoDB connection error:', err.message);
+        res.status(500).json({ error: 'Database connection failed' });
+    }
+});
+
+// Export for Vercel Serverless Function
+module.exports = app;

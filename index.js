@@ -1,4 +1,8 @@
-require('dotenv').config();
+// Load .env only in development
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -25,7 +29,7 @@ app.use(async (req, res, next) => {
         await connectToDatabase();
         next();
     } catch (err) {
-        console.error('❌ MongoDB connection error:', err.message);
+        console.error('MongoDB connection error:', err.message);
         res.status(500).json({ error: 'Database connection failed' });
     }
 });

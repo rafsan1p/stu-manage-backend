@@ -46,28 +46,19 @@ router.get('/:id', verifyToken, requireRole('admin'), async (req, res, next) => 
 // Approve admission (admin)
 router.patch('/:id/approve', verifyToken, requireRole('admin'), async (req, res, next) => {
     try {
+        const { batchId } = req.body;
+        if (!batchId) return res.status(400).json({ error: 'Batch ID is required' });
+
         const admission = await AdmissionRequest.findById(req.params.id);
         if (!admission) return res.status(404).json({ error: 'Not found' });
         if (admission.status !== 'pending') return res.status(400).json({ error: 'Already processed' });
 
         const studentId = await generateStudentId();
 
-        // Find or create the batch based on classLevel + stream from admission form
-        const batchName = admission.stream
-            ? `${admission.classLevel} - ${admission.stream}`
-            : admission.classLevel;
-
-        let batch = await Batch.findOne({ name: batchName, isActive: true });
-        if (!batch) {
-            batch = await Batch.create({
-                name: batchName,
-                classLevel: admission.classLevel,
-                stream: admission.stream || null,
-                maxCapacity: 50,
-                monthlyFee: 0,
-                teacherId: req.user.dbId, // Admin is the teacher
-            });
-        }
+        // Get the selected batch
+        const batch = await Batch.findById(batchId);
+        if (!batch) return res.status(404).json({ error: 'Batch not found' });
+        if (!batch.isActive) return res.status(400).json({ error: 'Batch is not active' });
 
         // Find existing Firebase user by email (if they registered)
         let studentUser = await User.findOne({ email: admission.submittedByEmail });

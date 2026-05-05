@@ -67,11 +67,15 @@ router.get('/:id', verifyToken, async (req, res, next) => {
     } catch (err) { next(err); }
 });
 
-// Hard delete student — removes from DB and all batches (admin)
+// Hard delete student — removes from DB and all related data (admin)
 router.delete('/:id', verifyToken, requireRole('admin'), async (req, res, next) => {
     try {
         const StudentBatch = require('../models/StudentBatch');
         const Batch = require('../models/Batch');
+        const Attendance = require('../models/Attendance');
+        const Fee = require('../models/Fee');
+        const Result = require('../models/Result');
+        const AdmissionRequest = require('../models/AdmissionRequest');
 
         // Remove from all batches and update enrolledCount
         const enrollments = await StudentBatch.find({ studentId: req.params.id, isActive: true });
@@ -80,10 +84,22 @@ router.delete('/:id', verifyToken, requireRole('admin'), async (req, res, next) 
         }
         await StudentBatch.deleteMany({ studentId: req.params.id });
 
+        // Delete attendance records
+        await Attendance.deleteMany({ studentId: req.params.id });
+
+        // Delete fee records
+        await Fee.deleteMany({ studentId: req.params.id });
+
+        // Delete result records
+        await Result.deleteMany({ studentId: req.params.id });
+
+        // Delete admission request
+        await AdmissionRequest.deleteOne({ studentId: req.params.id });
+
         // Delete the user
         await User.findByIdAndDelete(req.params.id);
 
-        res.json({ message: 'Student deleted successfully' });
+        res.json({ message: 'Student deleted successfully from all sections' });
     } catch (err) { next(err); }
 });
 
@@ -96,10 +112,31 @@ router.patch('/:id', verifyToken, requireRole('admin'), async (req, res, next) =
     } catch (err) { next(err); }
 });
 
-// Approve student
+// Approve student + enroll in batch
 router.patch('/:id/approve', verifyToken, requireRole('admin'), async (req, res, next) => {
     try {
+        const { batchId } = req.body;
         const user = await User.findByIdAndUpdate(req.params.id, { isApproved: true }, { new: true });
+
+        // Enroll in selected batch if provided
+        if (batchId) {
+            const Batch = require('../models/Batch');
+            const StudentBatch = require('../models/StudentBatch');
+            const batch = await Batch.findById(batchId);
+            if (batch && batch.isActive) {
+                const existing = await StudentBatch.findOne({ studentId: user._id, batchId });
+                if (!existing) {
+                    await StudentBatch.create({ studentId: user._id, batchId });
+                    await Batch.findByIdAndUpdate(batchId, { $inc: { enrolledCount: 1 } });
+                } else if (!existing.isActive) {
+                    existing.isActive = true;
+                    existing.enrolledAt = new Date();
+                    await existing.save();
+                    await Batch.findByIdAndUpdate(batchId, { $inc: { enrolledCount: 1 } });
+                }
+            }
+        }
+
         res.json(user);
     } catch (err) { next(err); }
 });

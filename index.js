@@ -45,6 +45,7 @@ app.use('/api/results', require('./routes/results'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/materials', require('./routes/materials'));
 app.use('/api/messages', require('./routes/messages'));
+app.use('/api/advertisements', require('./routes/advertisements'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 
 // Health check

@@ -1,40 +1,22 @@
 const Batch = require('../models/Batch');
 const StudentBatch = require('../models/StudentBatch');
 
-const CLASS_9_12 = ['Class 9', 'Class 10', 'Class 11', 'Class 12'];
-const VALID_STREAMS = ['Science', 'Arts', 'Commerce'];
-
-function validateBatchData(data) {
-    const { classLevel, stream } = data;
-    if (CLASS_9_12.includes(classLevel)) {
-        if (!VALID_STREAMS.includes(stream)) {
-            const err = new Error(`Stream must be Science, Arts, or Commerce for ${classLevel}`);
-            err.status = 422;
-            throw err;
-        }
-    } else {
-        // Force null for Class 1-8 and Admission
-        data.stream = null;
-    }
-    return data;
-}
-
 async function createBatch(data) {
-    validateBatchData(data);
-    
+    // Force stream to null — not needed for ICT-only platform
+    data.stream = null;
+
     // Check for duplicate batch
     const existing = await Batch.findOne({
         name: data.name,
         classLevel: data.classLevel,
-        stream: data.stream || null,
     });
-    
+
     if (existing) {
-        const err = new Error('এই নাম, ক্লাস এবং স্ট্রিম দিয়ে ইতিমধ্যে একটি ব্যাচ আছে');
+        const err = new Error('এই নাম ও ক্লাস দিয়ে ইতিমধ্যে একটি ব্যাচ আছে');
         err.status = 409;
         throw err;
     }
-    
+
     return Batch.create(data);
 }
 

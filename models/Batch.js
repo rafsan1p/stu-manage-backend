@@ -5,18 +5,11 @@ const batchSchema = new mongoose.Schema({
     classLevel: {
         type: String,
         required: true,
-        enum: [
-            'Class 1','Class 2','Class 3','Class 4','Class 5',
-            'Class 6','Class 7','Class 8',
-            'Class 9','Class 10','Class 11','Class 12',
-            'Admission'
-        ]
+        enum: ['Class 11', 'Class 12']
     },
     stream: {
         type: String,
-        enum: ['Science', 'Arts', 'Commerce', null, undefined],
         default: null,
-        set: v => (v === '' || v === undefined) ? null : v,
     },
     subjects: [{ type: String }],
     teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
@@ -31,7 +24,7 @@ const batchSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
 });
 
-// Compound unique index to prevent duplicate batches
-batchSchema.index({ name: 1, classLevel: 1, stream: 1 }, { unique: true });
+// Compound unique index to prevent duplicate batches (stream removed — ICT only platform)
+batchSchema.index({ name: 1, classLevel: 1 }, { unique: true });
 
 module.exports = mongoose.model('Batch', batchSchema);

@@ -27,8 +27,8 @@ router.post('/', async (req, res, next) => {
             user = await User.create({ email, name, photoURL, phone });
         } else {
             const updates = {};
-            if (name && !user.name) updates.name = name;
-            if (photoURL && !user.photoURL) updates.photoURL = photoURL;
+            if (name) updates.name = name;
+            if (photoURL) updates.photoURL = photoURL;
             if (phone && !user.phone) updates.phone = phone;
             if (Object.keys(updates).length) {
                 user = await User.findOneAndUpdate({ email }, updates, { new: true });

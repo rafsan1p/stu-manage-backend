@@ -21,6 +21,20 @@ function validateBatchData(data) {
 
 async function createBatch(data) {
     validateBatchData(data);
+    
+    // Check for duplicate batch
+    const existing = await Batch.findOne({
+        name: data.name,
+        classLevel: data.classLevel,
+        stream: data.stream || null,
+    });
+    
+    if (existing) {
+        const err = new Error('এই নাম, ক্লাস এবং স্ট্রিম দিয়ে ইতিমধ্যে একটি ব্যাচ আছে');
+        err.status = 409;
+        throw err;
+    }
+    
     return Batch.create(data);
 }
 

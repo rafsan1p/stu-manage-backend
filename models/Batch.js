@@ -31,4 +31,7 @@ const batchSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
 });
 
+// Compound unique index to prevent duplicate batches
+batchSchema.index({ name: 1, classLevel: 1, stream: 1 }, { unique: true });
+
 module.exports = mongoose.model('Batch', batchSchema);

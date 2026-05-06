@@ -73,8 +73,10 @@ router.post('/:id/enroll', verifyToken, requireRole('admin'), async (req, res, n
     try {
         const { studentId } = req.body;
         const result = await enrollStudent(req.params.id, studentId);
-        res.json(result);
-    } catch (err) { next(err); }
+        res.status(200).json(result);
+    } catch (err) { 
+        next(err); 
+    }
 });
 
 // Remove student from batch (admin)

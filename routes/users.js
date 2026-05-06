@@ -123,22 +123,35 @@ router.patch('/:id/approve', verifyToken, requireRole('admin'), async (req, res,
             const Batch = require('../models/Batch');
             const StudentBatch = require('../models/StudentBatch');
             const batch = await Batch.findById(batchId);
-            if (batch && batch.isActive) {
-                const existing = await StudentBatch.findOne({ studentId: user._id, batchId });
-                if (!existing) {
-                    await StudentBatch.create({ studentId: user._id, batchId });
-                    await Batch.findByIdAndUpdate(batchId, { $inc: { enrolledCount: 1 } });
-                } else if (!existing.isActive) {
-                    existing.isActive = true;
-                    existing.enrolledAt = new Date();
-                    await existing.save();
-                    await Batch.findByIdAndUpdate(batchId, { $inc: { enrolledCount: 1 } });
-                }
+            
+            if (!batch) {
+                return res.status(404).json({ error: 'Batch not found' });
+            }
+            
+            if (!batch.isActive) {
+                return res.status(400).json({ error: 'Batch is not active' });
+            }
+            
+            if (batch.enrolledCount >= batch.maxCapacity) {
+                return res.status(409).json({ error: 'Batch is full' });
+            }
+            
+            const existing = await StudentBatch.findOne({ studentId: user._id, batchId });
+            if (!existing) {
+                await StudentBatch.create({ studentId: user._id, batchId });
+                await Batch.findByIdAndUpdate(batchId, { $inc: { enrolledCount: 1 } });
+            } else if (!existing.isActive) {
+                existing.isActive = true;
+                existing.enrolledAt = new Date();
+                await existing.save();
+                await Batch.findByIdAndUpdate(batchId, { $inc: { enrolledCount: 1 } });
             }
         }
 
-        res.json(user);
-    } catch (err) { next(err); }
+        res.status(200).json(user);
+    } catch (err) { 
+        next(err); 
+    }
 });
 
 // Deactivate user (soft delete)

@@ -58,4 +58,4 @@ async function getStudentsInBatch(batchId) {
         .lean();
 }
 
-module.exports = { createBatch, enrollStudent, removeStudent, getStudentsInBatch, validateBatchData };
+module.exports = { createBatch, enrollStudent, removeStudent, getStudentsInBatch };

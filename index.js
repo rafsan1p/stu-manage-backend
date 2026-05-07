@@ -19,8 +19,14 @@ async function connectToDatabase() {
     return db;
 }
 
-// Middleware
-app.use(cors({ origin: true }));
+// Middleware — allow all origins
+app.use(cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+app.options('*', cors());
 app.use(express.json({ limit: '10mb' }));
 
 // Connect to MongoDB BEFORE routes

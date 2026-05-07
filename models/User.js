@@ -21,6 +21,8 @@ const userSchema = new mongoose.Schema({
     guardianPhone: { type: String, default: '' },
     guardianEmail: { type: String, default: '' },
     guardianRelationship: { type: String, default: '' },
+    photoURL: { type: String, default: '' },
+    hasSubmittedAdmission: { type: Boolean, default: false }, // true after admission form submitted
 
     // Teacher specific
     subjectSpecialization: { type: String, default: '' },

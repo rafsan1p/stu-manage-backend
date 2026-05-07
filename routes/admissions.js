@@ -14,12 +14,26 @@ router.post('/', verifyToken, async (req, res, next) => {
     try {
         const data = req.body;
         data.submittedByEmail = req.user.email;
+
+        // Check if already submitted
+        const alreadySubmitted = await AdmissionRequest.findOne({ submittedByEmail: req.user.email });
+        if (alreadySubmitted) {
+            return res.status(409).json({ error: 'আপনি ইতিমধ্যে ভর্তি আবেদন করেছেন' });
+        }
+
         const existingAdmission = await AdmissionRequest.findOne({
             guardianPhone: data.guardianPhone,
             status: 'pending'
         });
         data.isDuplicate = !!existingAdmission;
         const admission = await AdmissionRequest.create(data);
+
+        // Mark user as having submitted admission
+        await User.findOneAndUpdate(
+            { email: req.user.email },
+            { hasSubmittedAdmission: true }
+        );
+
         res.status(201).json({ message: 'Admission request submitted successfully', id: admission._id });
     } catch (err) { next(err); }
 });

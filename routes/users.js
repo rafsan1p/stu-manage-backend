@@ -44,6 +44,8 @@ router.get('/', verifyToken, requireRole('admin'), async (req, res, next) => {
         const filter = {};
         if (req.query.role) filter.role = req.query.role;
         if (req.query.isActive !== undefined) filter.isActive = req.query.isActive === 'true';
+        // Only show students who have submitted admission form
+        if (req.query.role === 'student') filter.hasSubmittedAdmission = true;
         const users = await User.find(filter).sort({ createdAt: -1 });
         res.json(users);
     } catch (err) { next(err); }

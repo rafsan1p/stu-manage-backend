@@ -106,6 +106,9 @@ router.post('/:id/transfer', verifyToken, requireRole('admin'), async (req, res,
         });
 
         if (oldFee) {
+            // Delete old batch fee record — student is now in new batch
+            await Fee.findByIdAndDelete(oldFee._id);
+
             // Check if fee record exists for new batch this month
             const newFee = await Fee.findOne({ studentId, batchId: targetBatchId, month: currentMonth });
             if (newFee) {

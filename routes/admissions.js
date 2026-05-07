@@ -132,9 +132,9 @@ router.patch('/:id/approve', verifyToken, requireRole('admin'), async (req, res,
         admission.createdStudentId = studentUser._id;
         await admission.save();
 
-        // Send welcome SMS
-        const welcomeMsg = `স্বাগতম! ${admission.studentName} Genuine ICT Care-এ ভর্তি হয়েছে। Student ID: ${studentId}, Batch: ${batchName}। ধন্যবাদ।`;
-        sendSMS(admission.guardianPhone, welcomeMsg, req.user.dbId, studentUser._id).catch(console.error);
+        // Send welcome SMS (non-blocking, don't let it crash the response)
+        const welcomeMsg = `স্বাগতম! ${admission.studentName} Genuine ICT Care-এ ভর্তি হয়েছে। Student ID: ${studentId}, Batch: ${batch.name}। ধন্যবাদ।`;
+        sendSMS(admission.guardianPhone, welcomeMsg, req.user.dbId, studentUser._id).catch(() => {});
 
         res.json({ message: 'Approved', student: studentUser, batch, admission });
     } catch (err) { next(err); }

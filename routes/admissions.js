@@ -15,10 +15,13 @@ router.post('/', verifyToken, async (req, res, next) => {
         const data = req.body;
         data.submittedByEmail = req.user.email;
 
-        // Check if already submitted
-        const alreadySubmitted = await AdmissionRequest.findOne({ submittedByEmail: req.user.email });
+        // Check if already has a PENDING submission (not rejected/approved)
+        const alreadySubmitted = await AdmissionRequest.findOne({
+            submittedByEmail: req.user.email,
+            status: 'pending'
+        });
         if (alreadySubmitted) {
-            return res.status(409).json({ error: 'আপনি ইতিমধ্যে ভর্তি আবেদন করেছেন' });
+            return res.status(409).json({ error: 'আপনি ইতিমধ্যে ভর্তি আবেদন করেছেন এবং এটি এখনো pending আছে' });
         }
 
         const existingAdmission = await AdmissionRequest.findOne({

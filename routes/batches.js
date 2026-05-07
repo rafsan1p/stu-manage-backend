@@ -79,6 +79,63 @@ router.post('/:id/enroll', verifyToken, requireRole('admin'), async (req, res, n
     }
 });
 
+// Transfer student from one batch to another (admin)
+// Carries over any paid fees for current month to new batch
+router.post('/:id/transfer', verifyToken, requireRole('admin'), async (req, res, next) => {
+    try {
+        const { studentId, targetBatchId } = req.body;
+        if (!studentId || !targetBatchId) {
+            return res.status(400).json({ error: 'studentId and targetBatchId are required' });
+        }
+
+        const Fee = require('../models/Fee');
+        const currentMonth = new Date().toISOString().slice(0, 7);
+
+        // Remove from current batch
+        await removeStudent(req.params.id, studentId);
+
+        // Enroll in new batch
+        await enrollStudent(targetBatchId, studentId);
+
+        // If student already paid this month in old batch, mark new batch fee as paid too
+        const oldFee = await Fee.findOne({
+            studentId,
+            batchId: req.params.id,
+            month: currentMonth,
+            status: 'paid',
+        });
+
+        if (oldFee) {
+            // Check if fee record exists for new batch this month
+            const newFee = await Fee.findOne({ studentId, batchId: targetBatchId, month: currentMonth });
+            if (newFee) {
+                // Mark as paid (transferred)
+                await Fee.findByIdAndUpdate(newFee._id, {
+                    status: 'paid',
+                    paidAt: oldFee.paidAt,
+                    paymentNote: 'Batch transfer — fee carried over',
+                    receiptNumber: oldFee.receiptNumber,
+                });
+            } else {
+                // Create a paid fee record for new batch
+                const newBatch = await Batch.findById(targetBatchId);
+                await Fee.create({
+                    studentId,
+                    batchId: targetBatchId,
+                    month: currentMonth,
+                    amount: newBatch?.monthlyFee || oldFee.amount,
+                    status: 'paid',
+                    paidAt: oldFee.paidAt,
+                    paymentNote: 'Batch transfer — fee carried over',
+                    receiptNumber: oldFee.receiptNumber,
+                });
+            }
+        }
+
+        res.json({ success: true, message: 'Student transferred successfully' });
+    } catch (err) { next(err); }
+});
+
 // Remove student from batch (admin)
 router.delete('/:id/enroll/:studentId', verifyToken, requireRole('admin'), async (req, res, next) => {
     try {

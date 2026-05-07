@@ -105,10 +105,29 @@ router.delete('/:id', verifyToken, requireRole('admin'), async (req, res, next) 
     } catch (err) { next(err); }
 });
 
-// Update user profile (admin)
-router.patch('/:id', verifyToken, requireRole('admin'), async (req, res, next) => {
+// Update user profile — admin can update anyone, student can only update own profile
+router.patch('/:id', verifyToken, async (req, res, next) => {
     try {
-        const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+        const requesterId = req.user.dbId;
+        const targetId = req.params.id;
+        const isAdmin = req.user.role === 'admin';
+
+        // Student can only update their own profile
+        if (!isAdmin && requesterId !== targetId) {
+            return res.status(403).json({ error: 'Forbidden — you can only update your own profile' });
+        }
+
+        // Students cannot change sensitive fields
+        const body = { ...req.body };
+        if (!isAdmin) {
+            delete body.role;
+            delete body.isApproved;
+            delete body.isActive;
+            delete body.studentId;
+            delete body.hasSubmittedAdmission;
+        }
+
+        const user = await User.findByIdAndUpdate(targetId, body, { new: true, runValidators: true });
         if (!user) return res.status(404).json({ error: 'User not found' });
         res.json(user);
     } catch (err) { next(err); }

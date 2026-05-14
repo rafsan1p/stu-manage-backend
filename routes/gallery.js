@@ -11,6 +11,7 @@ const gallerySchema = new mongoose.Schema({
     url: { type: String, required: true },
     thumb: { type: String, default: '' },
     isLocal: { type: Boolean, default: false },
+    deleted: { type: Boolean, default: false }, // for soft-deleting local images
     addedAt: { type: Date, default: Date.now },
     name: { type: String, default: '' },
 }, { timestamps: true });
@@ -20,20 +21,25 @@ const Gallery = mongoose.models.Gallery || mongoose.model('Gallery', gallerySche
 // GET all gallery images — public
 router.get('/', async (req, res, next) => {
     try {
-        const images = await Gallery.find().sort({ addedAt: -1 }).lean();
-        
-        // If no images in DB, return default local images
-        if (images.length === 0) {
-            const defaults = Array.from({ length: 32 }, (_, i) => ({
-                id: `s${i + 1}`,
-                url: `/students/s${i + 1}.jpg`,
-                isLocal: true,
-                addedAt: new Date(2024, 0, i + 1).toISOString(),
-            }));
-            return res.json(defaults);
-        }
-        
-        res.json(images);
+        const dbImages = await Gallery.find().sort({ addedAt: -1 }).lean();
+
+        // Always include default local images (s1-s32) at the end
+        const defaults = Array.from({ length: 32 }, (_, i) => ({
+            id: `s${i + 1}`,
+            url: `/students/s${i + 1}.jpg`,
+            isLocal: true,
+            addedAt: new Date(2024, 0, i + 1).toISOString(),
+        }));
+
+        // Merge: uploaded images first (newest), then local defaults
+        // Remove any local defaults that were manually deleted from DB
+        const deletedLocalIds = new Set(
+            (await Gallery.find({ id: /^s\d+$/, deleted: true }).lean()).map(d => d.id)
+        );
+
+        const localImages = defaults.filter(d => !deletedLocalIds.has(d.id));
+
+        res.json([...dbImages, ...localImages]);
     } catch (err) { next(err); }
 });
 
@@ -51,7 +57,18 @@ router.post('/', verifyToken, requireRole('admin'), async (req, res, next) => {
 // DELETE image — admin only
 router.delete('/:id', verifyToken, requireRole('admin'), async (req, res, next) => {
     try {
-        await Gallery.findOneAndDelete({ id: req.params.id });
+        const id = req.params.id;
+        // Check if it's a local image (s1-s32)
+        if (/^s\d+$/.test(id)) {
+            // Soft delete — mark as deleted so it won't show in GET
+            await Gallery.findOneAndUpdate(
+                { id },
+                { id, url: `/students/${id}.jpg`, isLocal: true, deleted: true },
+                { upsert: true, new: true }
+            );
+        } else {
+            await Gallery.findOneAndDelete({ id });
+        }
         res.json({ success: true });
     } catch (err) { next(err); }
 });

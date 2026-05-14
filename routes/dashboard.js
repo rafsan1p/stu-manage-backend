@@ -18,7 +18,7 @@ router.get('/admin', verifyToken, requireRole('admin'), async (req, res, next) =
         const today = new Date().toISOString().split('T')[0];
         const currentMonth = new Date().toISOString().slice(0, 7);
 
-        const [totalStudents, totalTeachers, totalBatches, todayAttendance, recentAdmissions, overdueFees] = await Promise.all([
+        const [totalStudents, totalTeachers, totalBatches, todayAttendance, recentAdmissions, overdueFees, visitorStats] = await Promise.all([
             User.countDocuments({ role: 'student', isActive: true, isApproved: true }),
             User.countDocuments({ role: 'teacher', isActive: true }),
             Batch.countDocuments({ isActive: true }),
@@ -26,6 +26,13 @@ router.get('/admin', verifyToken, requireRole('admin'), async (req, res, next) =
             AdmissionRequest.find().sort({ submittedAt: -1 }).limit(5),
             Fee.find({ status: 'unpaid', createdAt: { $lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } })
                 .populate('studentId', 'name studentId').populate('batchId', 'name').limit(20),
+            (async () => {
+                const Visitor = require('mongoose').models.Visitor;
+                if (!Visitor) return { today: 0, total: 0 };
+                const todayDoc = await Visitor.findOne({ date: today });
+                const totalResult = await Visitor.aggregate([{ $group: { _id: null, total: { $sum: '$count' } } }]);
+                return { today: todayDoc?.count || 0, total: totalResult[0]?.total || 0 };
+            })(),
         ]);
 
         // Income chart — last 6 months
@@ -49,7 +56,7 @@ router.get('/admin', verifyToken, requireRole('admin'), async (req, res, next) =
             due: monthFees.filter(f => f.status === 'unpaid').reduce((s, f) => s + f.amount, 0),
         };
 
-        res.json({ totalStudents, totalTeachers, totalBatches, todayAttendance, recentAdmissions, overdueFees, incomeChart, monthlyIncome });
+        res.json({ totalStudents, totalTeachers, totalBatches, todayAttendance, recentAdmissions, overdueFees, incomeChart, monthlyIncome, visitorStats });
     } catch (err) { next(err); }
 });
 

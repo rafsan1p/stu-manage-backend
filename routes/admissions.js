@@ -140,7 +140,85 @@ router.patch('/:id/approve', verifyToken, requireRole('admin'), async (req, res,
     } catch (err) { next(err); }
 });
 
-// Reject admission (admin)
+const crypto = require('crypto');
+
+function generatePassword() {
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lower = 'abcdefghijklmnopqrstuvwxyz';
+    const digits = '0123456789';
+    const special = '!@#$%^&*';
+    const all = upper + lower + digits + special;
+    let pwd = upper[Math.floor(Math.random() * upper.length)]
+        + lower[Math.floor(Math.random() * lower.length)]
+        + digits[Math.floor(Math.random() * digits.length)]
+        + special[Math.floor(Math.random() * special.length)];
+    for (let i = 4; i < 8; i++) pwd += all[Math.floor(Math.random() * all.length)];
+    return pwd.split('').sort(() => Math.random() - 0.5).join('');
+}
+
+router.post('/admin-enroll', verifyToken, requireRole('admin'), async (req, res, next) => {
+    try {
+        const { batchId, studentEmail, studentName, photoUrl, ...admissionData } = req.body;
+        if (!batchId) return res.status(400).json({ error: 'batchId required' });
+        if (!studentEmail) return res.status(400).json({ error: 'studentEmail required' });
+
+        const batch = await Batch.findById(batchId);
+        if (!batch || !batch.isActive) return res.status(400).json({ error: 'Batch not found or inactive' });
+        if (batch.enrolledCount >= batch.maxCapacity) return res.status(409).json({ error: 'Batch is full' });
+
+        const studentId = await generateStudentId();
+        const password = generatePassword();
+
+        let studentUser = await User.findOne({ email: studentEmail });
+        if (!studentUser) {
+            studentUser = await User.create({
+                name: admissionData.studentName || studentName,
+                email: studentEmail,
+                role: 'student',
+                isApproved: true,
+                studentId,
+                hasSubmittedAdmission: true,
+                photoURL: photoUrl || '',
+                phone: admissionData.studentPhone || admissionData.guardianPhone || '',
+                guardianName: admissionData.guardianName,
+                guardianPhone: admissionData.guardianPhone,
+                guardianRelationship: admissionData.guardianRelationship,
+                address: admissionData.address,
+                institution: admissionData.institution,
+                gender: admissionData.gender,
+                dateOfBirth: admissionData.dateOfBirth || null,
+            });
+        } else {
+            studentUser = await User.findByIdAndUpdate(studentUser._id, {
+                name: admissionData.studentName || studentName,
+                role: 'student',
+                isApproved: true,
+                studentId,
+                hasSubmittedAdmission: true,
+                photoURL: photoUrl || studentUser.photoURL,
+            }, { new: true });
+        }
+
+        await enrollStudent(batchId, studentUser._id.toString());
+
+        const admission = await AdmissionRequest.create({
+            ...admissionData,
+            studentName: admissionData.studentName || studentName,
+            photoUrl: photoUrl || '',
+            submittedByEmail: studentEmail,
+            status: 'approved',
+            reviewedBy: req.user.dbId,
+            reviewedAt: new Date(),
+            createdStudentId: studentUser._id,
+        });
+
+        const { sendEmail } = require('../services/smsService');
+        const emailBody = `স্বাগতম ${studentUser.name}!\n\nGenuine ICT Care এ আপনার ভর্তি সম্পন্ন হয়েছে।\n\nLogin করুন:\nEmail: ${studentEmail}\nPassword: ${password}\n\nStudent ID: ${studentId}\nBatch: ${batch.name}\n\nLogin link: https://edutrack-bd.web.app/login\n\nপ্রথম login এর পর অবশ্যই password পরিবর্তন করুন।`;
+        sendEmail(studentEmail, 'Genuine ICT Care — Login Credentials', emailBody, req.user.dbId, studentUser._id).catch(() => {});
+
+        res.status(201).json({ message: 'Student enrolled successfully', student: studentUser, password });
+    } catch (err) { next(err); }
+});
 router.patch('/:id/reject', verifyToken, requireRole('admin'), async (req, res, next) => {
     try {
         const admission = await AdmissionRequest.findByIdAndUpdate(

@@ -53,6 +53,8 @@ app.use('/api/messages', require('./routes/messages'));
 app.use('/api/advertisements', require('./routes/advertisements'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/gallery', require('./routes/gallery'));
+app.use('/api/demo-sheets', require('./routes/demoSheets'));
+app.use('/api/visitors', require('./routes/visitors'));
 
 // Health check
 app.get('/', (req, res) => {

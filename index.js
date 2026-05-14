@@ -52,6 +52,7 @@ app.use('/api/materials', require('./routes/materials'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/advertisements', require('./routes/advertisements'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/gallery', require('./routes/gallery'));
 
 // Health check
 app.get('/', (req, res) => {

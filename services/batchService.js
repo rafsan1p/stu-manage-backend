@@ -5,16 +5,27 @@ async function createBatch(data) {
     // Force stream to null — not needed for ICT-only platform
     data.stream = null;
 
-    // Check for duplicate batch
-    const existing = await Batch.findOne({
-        name: data.name,
-        classLevel: data.classLevel,
-    });
+    // Check for duplicate: same time on overlapping days
+    // A teacher cannot teach two batches at the same time on the same day
+    if (data.schedule?.time && data.schedule?.days?.length > 0) {
+        const existingBatches = await Batch.find({
+            isActive: true,
+            'schedule.time': data.schedule.time,
+        });
 
-    if (existing) {
-        const err = new Error('এই নাম ও ক্লাস দিয়ে ইতিমধ্যে একটি ব্যাচ আছে');
-        err.status = 409;
-        throw err;
+        for (const existing of existingBatches) {
+            const existingDays = existing.schedule?.days || [];
+            const newDays = data.schedule.days;
+            const overlap = newDays.some(d => existingDays.includes(d));
+            if (overlap) {
+                const overlapDays = newDays.filter(d => existingDays.includes(d)).join(', ');
+                const err = new Error(
+                    `"${existing.name}" ব্যাচটি ইতিমধ্যে ${data.schedule.time} সময়ে ${overlapDays} দিনে চলছে। একই সময়ে দুটি ব্যাচ হতে পারে না।`
+                );
+                err.status = 409;
+                throw err;
+            }
+        }
     }
 
     return Batch.create(data);

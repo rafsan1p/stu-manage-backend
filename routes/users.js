@@ -89,8 +89,8 @@ router.delete('/:id', verifyToken, requireRole('admin'), async (req, res, next) 
         // Delete attendance records
         await Attendance.deleteMany({ studentId: req.params.id });
 
-        // Delete fee records
-        await Fee.deleteMany({ studentId: req.params.id });
+        // Keep fee records to maintain income history
+        // await Fee.deleteMany({ studentId: req.params.id });
 
         // Delete result records
         await Result.deleteMany({ studentId: req.params.id });

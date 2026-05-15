@@ -10,7 +10,24 @@ async function sendSMS(to, message, sentBy = null, relatedStudentId = null) {
     if (!phone.startsWith('88')) phone = '88' + phone;
 
     try {
-        if (process.env.SMS_PROVIDER === 'sslwireless') {
+        if (process.env.SMS_PROVIDER === 'bulksmsbd') {
+            const response = await fetch('https://bulksmsbd.net/api/smsapi', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    api_key: process.env.BULKSMSBD_API_KEY,
+                    senderid: process.env.BULKSMSBD_SENDER_ID || 'EduTrack',
+                    number: phone,
+                    message: message,
+                }),
+            });
+            const data = await response.json();
+            if (data.response_code !== 202) {
+                throw new Error(`BulkSMSBD error: ${JSON.stringify(data)}`);
+            }
+            console.log(`[SMS - BulkSMSBD] To: ${phone} | Response: ${data.response_code}`);
+
+        } else if (process.env.SMS_PROVIDER === 'sslwireless') {
             const url = `https://sms.sslwireless.com/pushapi/dynamic/server.php` +
                 `?api_token=${process.env.SSL_WIRELESS_API_TOKEN}` +
                 `&sid=${process.env.SSL_WIRELESS_SID}` +

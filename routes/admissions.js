@@ -169,6 +169,29 @@ router.post('/admin-enroll', verifyToken, requireRole('admin'), async (req, res,
         const studentId = await generateStudentId();
         const password = generatePassword();
 
+        // Create or update user in Firebase Auth so they can login
+        const adminFirebase = require('../config/firebaseAdmin');
+        if (adminFirebase) {
+            try {
+                await adminFirebase.auth().createUser({
+                    email: studentEmail,
+                    password: password,
+                    displayName: admissionData.studentName || studentName,
+                });
+            } catch (fbErr) {
+                if (fbErr.code === 'auth/email-already-exists') {
+                    try {
+                        const fbUser = await adminFirebase.auth().getUserByEmail(studentEmail);
+                        await adminFirebase.auth().updateUser(fbUser.uid, { password: password });
+                    } catch (updateErr) {
+                        console.error('Firebase update error:', updateErr);
+                    }
+                } else {
+                    console.error('Firebase create error:', fbErr);
+                }
+            }
+        }
+
         let studentUser = await User.findOne({ email: studentEmail });
         if (!studentUser) {
             studentUser = await User.create({

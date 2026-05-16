@@ -11,16 +11,10 @@ async function sendSMS(to, message, sentBy = null, relatedStudentId = null) {
 
     try {
         if (process.env.SMS_PROVIDER === 'bulksmsbd') {
-            const response = await fetch('https://bulksmsbd.net/api/smsapi', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    api_key: process.env.BULKSMSBD_API_KEY,
-                    senderid: process.env.BULKSMSBD_SENDER_ID || 'EduTrack',
-                    number: phone,
-                    message: message,
-                }),
-            });
+            const apiKey = process.env.BULKSMSBD_API_KEY;
+            const senderId = process.env.BULKSMSBD_SENDER_ID;
+            const url = `https://bulksmsbd.net/api/smsapi?api_key=${apiKey}&type=text&number=${phone}&senderid=${senderId}&message=${encodeURIComponent(message)}`;
+            const response = await fetch(url);
             const data = await response.json();
             if (data.response_code !== 202) {
                 throw new Error(`BulkSMSBD error: ${JSON.stringify(data)}`);
